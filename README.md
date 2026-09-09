@@ -241,12 +241,5 @@ Protocols · IoT Communication · Fiber Optics · Satellite Communication · 6G 
 - [ ] Export quiz results as PDF
 - [ ] Mobile PWA support
 
----
-
-## 📄 License
-
-MIT License — free to use for educational purposes.
-
----
 
 *Built as an AI-powered B.Tech project demonstrating Flask, RAG, LLM integration, and full-stack web development.*
