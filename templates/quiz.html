@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% block title %}AI Quiz{% endblock %}
+{% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="fas fa-question-circle me-2 text-primary"></i>AI Quiz Generator</h1>
+      <p class="page-subtitle">Test your telecom knowledge with AI-generated quizzes</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Quiz Setup -->
+    <div class="col-lg-5">
+      <div class="glass-card">
+        <div class="glass-card-header">
+          <h5><i class="fas fa-cog me-2 text-cyan"></i>Generate New Quiz</h5>
+        </div>
+        <div class="glass-card-body">
+          <div class="mb-3">
+            <label class="form-label">Select Topic</label>
+            <select class="form-select" id="quizTopic">
+              <option value="">-- Choose a topic --</option>
+              {% for topic in topics %}
+              <option value="{{ topic }}" {% if request.args.get('topic') == topic %}selected{% endif %}>{{ topic }}</option>
+              {% endfor %}
+              <option value="General Telecom">General Telecom</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Difficulty Level</label>
+            <div class="difficulty-selector">
+              <label class="diff-option">
+                <input type="radio" name="difficulty" value="easy"> <span class="diff-label diff-easy">🌱 Easy</span>
+              </label>
+              <label class="diff-option">
+                <input type="radio" name="difficulty" value="medium" checked> <span class="diff-label diff-medium">📚 Medium</span>
+              </label>
+              <label class="diff-option">
+                <input type="radio" name="difficulty" value="hard"> <span class="diff-label diff-hard">🔥 Hard</span>
+              </label>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Number of Questions: <strong id="numLabel">5</strong></label>
+            <input type="range" class="form-range" id="numQuestions" min="3" max="15" value="5"
+              oninput="document.getElementById('numLabel').textContent = this.value">
+          </div>
+          <button class="btn btn-primary btn-lg w-100" id="generateBtn" onclick="generateQuiz()">
+            <i class="fas fa-wand-magic-sparkles me-2"></i>Generate Quiz
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      {% if stats.total_quizzes %}
+      <div class="glass-card mt-4">
+        <div class="glass-card-header"><h5><i class="fas fa-trophy me-2 text-warning"></i>Your Stats</h5></div>
+        <div class="glass-card-body">
+          <div class="row text-center">
+            <div class="col-4"><div class="small text-muted">Quizzes</div><strong>{{ stats.total_quizzes|int }}</strong></div>
+            <div class="col-4"><div class="small text-muted">Avg Score</div><strong>{{ "%.0f"|format(stats.avg_score or 0) }}%</strong></div>
+            <div class="col-4"><div class="small text-muted">Best</div><strong>{{ "%.0f"|format(stats.best_score or 0) }}%</strong></div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Quiz Area / History -->
+    <div class="col-lg-7">
+      <!-- Active quiz -->
+      <div id="quizArea" style="display:none">
+        <div class="glass-card">
+          <div class="glass-card-header">
+            <h5 id="quizTitle"></h5>
+            <span class="badge bg-secondary" id="quizBadge"></span>
+          </div>
+          <div class="glass-card-body">
+            <div id="quizQuestions"></div>
+            <div class="quiz-actions mt-4">
+              <button class="btn btn-success btn-lg" id="submitQuizBtn" onclick="submitQuiz()">
+                <i class="fas fa-check me-2"></i>Submit Answers
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div id="quizLoading" style="display:none">
+        <div class="glass-card">
+          <div class="glass-card-body text-center py-5">
+            <div class="quiz-loading-animation mb-3">
+              <i class="fas fa-brain fa-3x text-primary"></i>
+            </div>
+            <h5>Generating Your Quiz…</h5>
+            <p class="text-muted">The AI is crafting your personalized questions</p>
+            <div class="progress mt-3"><div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width:100%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quiz History -->
+      <div id="historyArea">
+        {% if history %}
+        <div class="glass-card">
+          <div class="glass-card-header"><h5><i class="fas fa-history me-2 text-purple"></i>Recent Quizzes</h5></div>
+          <div class="glass-card-body p-0">
+            <div class="quiz-history-list">
+              {% for attempt in history %}
+              <a href="{{ url_for('quiz.results', attempt_id=attempt.id) }}" class="quiz-history-item">
+                <div class="qh-info">
+                  <strong>{{ attempt.topic }}</strong>
+                  <span class="badge bg-secondary ms-2">{{ attempt.difficulty }}</span>
+                </div>
+                <div class="qh-score">
+                  <div class="score-circle score-{{ 'green' if attempt.score_percent >= 75 else 'yellow' if attempt.score_percent >= 50 else 'red' }}">
+                    {{ "%.0f"|format(attempt.score_percent) }}%
+                  </div>
+                </div>
+                <div class="qh-meta text-muted small">{{ attempt.completed_at[:16] }}</div>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="glass-card">
+          <div class="glass-card-body text-center py-5">
+            <i class="fas fa-question-circle fa-3x mb-3 text-muted"></i>
+            <p class="text-muted">No quizzes taken yet.<br>Generate your first quiz!</p>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentAttemptId = null;
+let currentQuestions = [];
+
+async function generateQuiz() {
+  const topic = document.getElementById('quizTopic').value;
+  if (!topic) { alert('Please select a topic.'); return; }
+  const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+  const numQuestions = parseInt(document.getElementById('numQuestions').value);
+
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('historyArea').style.display = 'none';
+  document.getElementById('quizArea').style.display = 'none';
+  document.getElementById('quizLoading').style.display = 'block';
+
+  try {
+    const res = await fetch('/quiz/generate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({topic, difficulty, num_questions: numQuestions})
+    });
+    const data = await res.json();
+    document.getElementById('quizLoading').style.display = 'none';
+
+    if (data.error) {
+      document.getElementById('historyArea').style.display = 'block';
+      alert('Error: ' + data.error);
+      return;
+    }
+
+    currentAttemptId = data.attempt_id;
+    currentQuestions = data.questions;
+    renderQuiz(data);
+    document.getElementById('quizArea').style.display = 'block';
+  } catch (err) {
+    document.getElementById('quizLoading').style.display = 'none';
+    document.getElementById('historyArea').style.display = 'block';
+    alert('Network error. Please try again.');
+  } finally {
+    document.getElementById('generateBtn').disabled = false;
+  }
+}
+
+function renderQuiz(data) {
+  document.getElementById('quizTitle').textContent = `📝 ${data.topic} Quiz`;
+  document.getElementById('quizBadge').textContent = data.difficulty.toUpperCase();
+  const container = document.getElementById('quizQuestions');
+  container.innerHTML = data.questions.map((q, i) => `
+    <div class="quiz-question-card" id="qcard-${i}">
+      <div class="question-num">Q${i+1} of ${data.questions.length}</div>
+      <div class="question-text">${escapeHtml(q.question)}</div>
+      <div class="options-grid">
+        ${['A','B','C','D'].map(opt => `
+          <label class="option-label" id="opt-${i}-${opt}">
+            <input type="radio" name="q${i}" value="${opt}" onchange="selectOption(${i},'${opt}')">
+            <span class="option-letter">${opt}</span>
+            <span class="option-text">${escapeHtml(q['option_' + opt.toLowerCase()])}</span>
+          </label>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function selectOption(qIdx, opt) {
+  ['A','B','C','D'].forEach(o => {
+    document.getElementById(`opt-${qIdx}-${o}`)?.classList.remove('selected');
+  });
+  document.getElementById(`opt-${qIdx}-${opt}`)?.classList.add('selected');
+}
+
+async function submitQuiz() {
+  const answers = {};
+  // Collect answers from questions stored server-side
+  // We need question IDs; get them from API
+  const questionsRes = await fetch(`/quiz/attempt/${currentAttemptId}`);
+  if (!questionsRes.ok) { alert('Error fetching quiz.'); return; }
+  const qData = await questionsRes.json();
+
+  qData.questions.forEach((q, i) => {
+    const selected = document.querySelector(`input[name="q${i}"]:checked`);
+    answers[q.id] = selected ? selected.value : '';
+  });
+
+  document.getElementById('submitQuizBtn').disabled = true;
+  document.getElementById('submitQuizBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting…';
+
+  const res = await fetch(`/quiz/submit/${currentAttemptId}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(answers)
+  });
+  const result = await res.json();
+  if (result.error) { alert(result.error); return; }
+  window.location.href = `/quiz/results/${currentAttemptId}`;
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

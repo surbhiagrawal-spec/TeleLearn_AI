@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Telecom Topics{% endblock %}
+{% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="fas fa-sitemap me-2 text-primary"></i>Telecom Topics</h1>
+      <p class="page-subtitle">Browse and explore all major telecom domains</p>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>{{ error }}</div>
+  {% endif %}
+
+  <!-- Explain This Section -->
+  <div class="glass-card mb-4">
+    <div class="glass-card-header">
+      <h5><i class="fas fa-lightbulb me-2 text-warning"></i>Explain This</h5>
+      <span class="text-muted small">Enter any telecom concept for an AI explanation</span>
+    </div>
+    <div class="glass-card-body">
+      <div class="explain-form">
+        <div class="row g-3 align-items-end">
+          <div class="col-lg-5">
+            <label class="form-label small text-muted">Telecom Concept</label>
+            <input type="text" class="form-control" id="explainConcept" placeholder="e.g., OFDM, Beamforming, TCP handshake…">
+          </div>
+          <div class="col-lg-2">
+            <label class="form-label small text-muted">Level</label>
+            <select class="form-select" id="explainLevel">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate" selected>Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          <div class="col-lg-3">
+            <label class="form-label small text-muted">Mode</label>
+            <select class="form-select" id="explainMode">
+              <option value="explain">Explain Simply</option>
+              <option value="example">Explain with Example</option>
+              <option value="step_by_step">Step-by-Step</option>
+              <option value="technical">Explain Technically</option>
+              <option value="compare">Compare Two Concepts</option>
+            </select>
+          </div>
+          <div class="col-lg-2">
+            <button class="btn btn-primary w-100" id="explainBtn" onclick="explainConcept()">
+              <i class="fas fa-magic me-1"></i>Explain
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="explainResult" class="mt-3" style="display:none">
+        <div class="explain-output" id="explainOutput"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Topics Grid -->
+  <div class="topics-grid">
+    {% for topic_name, topic_data in topics.items() %}
+    <a href="{{ url_for('topics.topic_detail', topic_name=topic_name) }}" class="topic-card topic-{{ topic_data.color }}">
+      <div class="topic-card-icon">{{ topic_data.icon }}</div>
+      <div class="topic-card-name">{{ topic_name }}</div>
+      <div class="topic-card-subs">
+        {% for sub in topic_data.subtopics[:3] %}
+        <span class="topic-sub-chip">{{ sub }}</span>
+        {% endfor %}
+        {% if topic_data.subtopics|length > 3 %}
+        <span class="topic-sub-chip">+{{ topic_data.subtopics|length - 3 }} more</span>
+        {% endif %}
+      </div>
+      <div class="topic-card-arrow"><i class="fas fa-arrow-right"></i></div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function explainConcept() {
+  const concept = document.getElementById('explainConcept').value.trim();
+  if (!concept) { alert('Please enter a concept to explain.'); return; }
+
+  const btn = document.getElementById('explainBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Thinking…';
+
+  const resultDiv = document.getElementById('explainResult');
+  const outputDiv = document.getElementById('explainOutput');
+  resultDiv.style.display = 'block';
+  outputDiv.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 text-muted">Generating explanation…</p></div>';
+
+  try {
+    const res = await fetch('/topics/api/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        concept,
+        level: document.getElementById('explainLevel').value,
+        mode: document.getElementById('explainMode').value
+      })
+    });
+    const data = await res.json();
+    if (data.error) {
+      outputDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>${data.error}</div>`;
+    } else {
+      outputDiv.innerHTML = `
+        <div class="explain-header">
+          <span class="badge bg-primary me-2">${data.level}</span>
+          <span class="badge bg-secondary me-2">${data.mode.replace('_',' ')}</span>
+          <strong>${data.concept}</strong>
+        </div>
+        <div class="explain-text">${renderMarkdown(data.explanation)}</div>`;
+    }
+  } catch (err) {
+    outputDiv.innerHTML = '<div class="alert alert-danger">Network error. Please try again.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-magic me-1"></i>Explain';
+  }
+}
+
+function renderMarkdown(text) {
+  if (typeof marked !== 'undefined') return marked.parse(text);
+  return text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+}
+
+document.getElementById('explainConcept').addEventListener('keydown', e => {
+  if (e.key === 'Enter') explainConcept();
+});
+</script>
+{% endblock %}

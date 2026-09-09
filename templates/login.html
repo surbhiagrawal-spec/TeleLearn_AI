@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+{% block public_content %}
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <i class="fas fa-broadcast-tower auth-icon"></i>
+      <h1 class="auth-title">TeleLearn <span class="accent-text">AI</span></h1>
+      <p class="auth-subtitle">Sign in to your learning account</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+      <div class="mb-3">
+        <label class="form-label">Username or Email</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-user"></i></span>
+          <input type="text" class="form-control" name="username" value="{{ username|default('') }}" required autofocus placeholder="Enter username or email">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fas fa-lock"></i></span>
+          <input type="password" class="form-control" name="password" required placeholder="Enter password" id="loginPassword">
+          <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('loginPassword', this)" tabindex="-1">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100 btn-auth">
+        <i class="fas fa-sign-in-alt me-2"></i>Sign In
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>New here?</span></div>
+    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary w-100">
+      <i class="fas fa-user-plus me-2"></i>Create Account
+    </a>
+    <div class="text-center mt-3">
+      <a href="{{ url_for('main.index') }}" class="text-muted small"><i class="fas fa-home me-1"></i>Back to Home</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function togglePassword(id, btn) {
+  const input = document.getElementById(id);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+  } else {
+    input.type = 'password';
+    btn.innerHTML = '<i class="fas fa-eye"></i>';
+  }
+}
+</script>
+{% endblock %}

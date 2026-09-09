@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}My Progress{% endblock %}
+{% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="fas fa-chart-line me-2 text-primary"></i>My Progress</h1>
+      <p class="page-subtitle">Track your learning journey</p>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="stats-grid mb-4">
+    <div class="stat-card stat-blue">
+      <div class="stat-card-icon"><i class="fas fa-clipboard-check"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ quiz_stats.get('total_quizzes', 0)|int }}</div>
+        <div class="stat-card-label">Quizzes Completed</div>
+      </div>
+    </div>
+    <div class="stat-card stat-green">
+      <div class="stat-card-icon"><i class="fas fa-star"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ "%.0f"|format(quiz_stats.get('avg_score', 0) or 0) }}%</div>
+        <div class="stat-card-label">Average Score</div>
+      </div>
+    </div>
+    <div class="stat-card stat-purple">
+      <div class="stat-card-icon"><i class="fas fa-trophy"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ "%.0f"|format(quiz_stats.get('best_score', 0) or 0) }}%</div>
+        <div class="stat-card-label">Best Score</div>
+      </div>
+    </div>
+    <div class="stat-card stat-cyan">
+      <div class="stat-card-icon"><i class="fas fa-question"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ quiz_stats.get('total_questions_answered', 0)|int }}</div>
+        <div class="stat-card-label">Questions Answered</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-8">
+      <div class="glass-card h-100">
+        <div class="glass-card-header"><h5><i class="fas fa-chart-bar me-2 text-primary"></i>Quiz Scores Over Time</h5></div>
+        <div class="glass-card-body"><canvas id="progressChart" height="200"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="glass-card h-100">
+        <div class="glass-card-header"><h5><i class="fas fa-calendar me-2 text-cyan"></i>Daily Activity (30 days)</h5></div>
+        <div class="glass-card-body"><canvas id="activityChart" height="200"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Topic Coverage + Quiz History -->
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="glass-card">
+        <div class="glass-card-header"><h5><i class="fas fa-sitemap me-2 text-warning"></i>Topics Covered</h5></div>
+        <div class="glass-card-body p-0">
+          {% if topic_activity %}
+          <div class="topic-progress-list">
+            {% for topic in topic_activity %}
+            <div class="topic-progress-item">
+              <div class="topic-progress-name">{{ topic.topic }}</div>
+              <div class="topic-progress-bar">
+                <div class="progress flex-grow-1 me-2" style="height:6px">
+                  <div class="progress-bar bg-primary" style="width: {{ [topic.cnt * 10, 100]|min }}%"></div>
+                </div>
+                <span class="badge bg-secondary">{{ topic.cnt }}x</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state py-4"><p class="text-muted">No topics explored yet.</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="glass-card">
+        <div class="glass-card-header"><h5><i class="fas fa-history me-2 text-purple"></i>Quiz History</h5></div>
+        <div class="glass-card-body p-0">
+          {% if quiz_attempts %}
+          <table class="table table-dark table-hover mb-0">
+            <thead><tr><th>Topic</th><th>Difficulty</th><th>Score</th><th>Date</th><th></th></tr></thead>
+            <tbody>
+              {% for a in quiz_attempts[:15] %}
+              <tr>
+                <td>{{ a.topic }}</td>
+                <td><span class="badge bg-secondary">{{ a.difficulty }}</span></td>
+                <td>
+                  <span class="fw-bold {{ 'text-success' if a.score_percent >= 75 else 'text-warning' if a.score_percent >= 50 else 'text-danger' }}">
+                    {{ "%.0f"|format(a.score_percent) }}%
+                  </span>
+                </td>
+                <td class="text-muted small">{{ a.completed_at[:10] }}</td>
+                <td><a href="{{ url_for('quiz.results', attempt_id=a.id) }}" class="btn btn-xs btn-outline-secondary">View</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="empty-state py-4"><p class="text-muted">No quizzes taken yet.</p></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const qTopics = {{ q_topics|safe }};
+const qScores = {{ q_scores|safe }};
+const days = {{ days|safe }};
+const dayCounts = {{ day_counts|safe }};
+
+if (document.getElementById('progressChart')) {
+  new Chart(document.getElementById('progressChart'), {
+    type: 'bar',
+    data: {
+      labels: qTopics.length ? qTopics : ['No data'],
+      datasets: [{
+        label: 'Score (%)',
+        data: qScores.length ? qScores : [0],
+        backgroundColor: qScores.map(s => s >= 75 ? 'rgba(16,185,129,0.7)' : s >= 50 ? 'rgba(245,158,11,0.7)' : 'rgba(239,68,68,0.7)'),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min:0, max:100, grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#8b9ab1',callback:v=>v+'%'} },
+        x: { grid:{display:false}, ticks:{color:'#8b9ab1'} }
+      }
+    }
+  });
+}
+
+if (document.getElementById('activityChart')) {
+  new Chart(document.getElementById('activityChart'), {
+    type: 'line',
+    data: {
+      labels: days.length ? days : ['No data'],
+      datasets: [{
+        label: 'Activities',
+        data: dayCounts.length ? dayCounts : [0],
+        borderColor: '#06b6d4',
+        backgroundColor: 'rgba(6,182,212,0.1)',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min:0, grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#8b9ab1'} },
+        x: { grid:{display:false}, ticks:{color:'#8b9ab1', maxTicksLimit:7} }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

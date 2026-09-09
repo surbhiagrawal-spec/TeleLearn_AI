@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="fas fa-tachometer-alt me-2 text-primary"></i>Dashboard</h1>
+      <p class="page-subtitle">Welcome back, <strong>{{ session.get('full_name', session.get('username')) }}</strong>! Here's your learning overview.</p>
+    </div>
+    <div class="header-actions">
+      <a href="{{ url_for('chatbot.index') }}" class="btn btn-primary"><i class="fas fa-robot me-1"></i>Ask AI</a>
+      <a href="{{ url_for('quiz.index') }}" class="btn btn-outline-secondary"><i class="fas fa-question-circle me-1"></i>Take Quiz</a>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card stat-blue">
+      <div class="stat-card-icon"><i class="fas fa-comments"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ questions_asked }}</div>
+        <div class="stat-card-label">Questions Asked</div>
+      </div>
+    </div>
+    <div class="stat-card stat-purple">
+      <div class="stat-card-icon"><i class="fas fa-clipboard-check"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ quiz_stats.get('total_quizzes', 0)|int }}</div>
+        <div class="stat-card-label">Quizzes Completed</div>
+      </div>
+    </div>
+    <div class="stat-card stat-green">
+      <div class="stat-card-icon"><i class="fas fa-star"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ "%.0f"|format(quiz_stats.get('avg_score', 0) or 0) }}%</div>
+        <div class="stat-card-label">Avg Quiz Score</div>
+      </div>
+    </div>
+    <div class="stat-card stat-cyan">
+      <div class="stat-card-icon"><i class="fas fa-sitemap"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ topics_studied }}</div>
+        <div class="stat-card-label">Topics Studied</div>
+      </div>
+    </div>
+    <div class="stat-card stat-orange">
+      <div class="stat-card-icon"><i class="fas fa-file-alt"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ kb_stats.get('documents', 0) }}</div>
+        <div class="stat-card-label">Uploaded Docs</div>
+      </div>
+    </div>
+    <div class="stat-card stat-teal">
+      <div class="stat-card-icon"><i class="fas fa-database"></i></div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">{{ kb_stats.get('chunks', 0) }}</div>
+        <div class="stat-card-label">Knowledge Chunks</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div class="glass-card h-100">
+        <div class="glass-card-header">
+          <h5><i class="fas fa-chart-line me-2 text-primary"></i>Quiz Performance</h5>
+        </div>
+        <div class="glass-card-body">
+          <canvas id="quizChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="glass-card h-100">
+        <div class="glass-card-header">
+          <h5><i class="fas fa-chart-pie me-2 text-purple"></i>Topics Explored</h5>
+        </div>
+        <div class="glass-card-body">
+          <canvas id="topicChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity + Quick Actions -->
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="glass-card">
+        <div class="glass-card-header">
+          <h5><i class="fas fa-history me-2 text-cyan"></i>Recent Activity</h5>
+        </div>
+        <div class="glass-card-body p-0">
+          {% if activity_list %}
+          <div class="activity-list">
+            {% for act in activity_list %}
+            <div class="activity-item">
+              <div class="activity-icon activity-{{ act.type }}">
+                {% if act.type == 'chat' %}<i class="fas fa-comment"></i>
+                {% elif act.type == 'quiz' %}<i class="fas fa-question-circle"></i>
+                {% elif act.type == 'topic_view' %}<i class="fas fa-book"></i>
+                {% elif act.type == 'explain' %}<i class="fas fa-lightbulb"></i>
+                {% else %}<i class="fas fa-circle"></i>{% endif %}
+              </div>
+              <div class="activity-body">
+                <div class="activity-title">
+                  {% if act.type == 'quiz' %}
+                    Quiz: <strong>{{ act.topic }}</strong>
+                    {% if act.details.get('score') is not none %}– {{ act.details.score }}%{% endif %}
+                  {% elif act.type == 'chat' %}
+                    Asked about <strong>{{ act.topic }}</strong>
+                  {% elif act.type == 'topic_view' %}
+                    Explored topic: <strong>{{ act.topic }}</strong>
+                  {% else %}
+                    {{ act.type.replace('_',' ').title() }}: <strong>{{ act.topic }}</strong>
+                  {% endif %}
+                </div>
+                <div class="activity-time">{{ act.created_at }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state p-4">
+            <i class="fas fa-rocket fa-3x mb-3 text-muted"></i>
+            <p class="text-muted">No activity yet. Start learning!</p>
+            <a href="{{ url_for('chatbot.index') }}" class="btn btn-primary btn-sm">Ask Your First Question</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="glass-card">
+        <div class="glass-card-header">
+          <h5><i class="fas fa-bolt me-2 text-warning"></i>Quick Actions</h5>
+        </div>
+        <div class="glass-card-body">
+          <div class="quick-actions">
+            <a href="{{ url_for('chatbot.index') }}" class="quick-action-btn">
+              <i class="fas fa-robot"></i><span>AI Tutor</span>
+            </a>
+            <a href="{{ url_for('quiz.index') }}" class="quick-action-btn">
+              <i class="fas fa-question-circle"></i><span>Take Quiz</span>
+            </a>
+            <a href="{{ url_for('topics.index') }}" class="quick-action-btn">
+              <i class="fas fa-sitemap"></i><span>Browse Topics</span>
+            </a>
+            <a href="{{ url_for('materials.index') }}" class="quick-action-btn">
+              <i class="fas fa-upload"></i><span>Upload Docs</span>
+            </a>
+            <a href="{{ url_for('profile.progress') }}" class="quick-action-btn">
+              <i class="fas fa-chart-bar"></i><span>My Progress</span>
+            </a>
+            <a href="{{ url_for('profile.index') }}" class="quick-action-btn">
+              <i class="fas fa-user-cog"></i><span>Profile</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const quizLabels = {{ quiz_labels|safe }};
+const quizScores = {{ quiz_scores|safe }};
+const topicLabels = {{ topic_labels|safe }};
+const topicData = {{ topic_data|safe }};
+
+// Quiz Performance Chart
+if (document.getElementById('quizChart')) {
+  new Chart(document.getElementById('quizChart'), {
+    type: 'line',
+    data: {
+      labels: quizLabels.length ? quizLabels : ['No quizzes yet'],
+      datasets: [{
+        label: 'Quiz Score (%)',
+        data: quizScores.length ? quizScores : [0],
+        borderColor: '#3b82d4',
+        backgroundColor: 'rgba(59,130,212,0.12)',
+        borderWidth: 2,
+        pointBackgroundColor: '#3b82d4',
+        pointRadius: 5,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' },
+             ticks: { color: '#8b9ab1', callback: v => v + '%' } },
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b9ab1' } }
+      }
+    }
+  });
+}
+
+// Topics Doughnut Chart
+if (document.getElementById('topicChart')) {
+  const palette = ['#3b82d4','#7c5cd8','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16'];
+  new Chart(document.getElementById('topicChart'), {
+    type: 'doughnut',
+    data: {
+      labels: topicLabels.length ? topicLabels : ['No data'],
+      datasets: [{
+        data: topicData.length ? topicData : [1],
+        backgroundColor: palette,
+        borderWidth: 2,
+        borderColor: '#1e2432'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { color: '#8b9ab1', padding: 10, font: { size: 11 } } } },
+      cutout: '65%'
+    }
+  });
+}
+</script>
+{% endblock %}

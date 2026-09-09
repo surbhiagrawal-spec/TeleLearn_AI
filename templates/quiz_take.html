@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Take Quiz – {{ attempt.topic }}{% endblock %}
+{% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="fas fa-question-circle me-2 text-primary"></i>{{ attempt.topic }}</h1>
+      <p class="page-subtitle">{{ attempt.difficulty.title() }} · {{ attempt.total_questions }} Questions</p>
+    </div>
+  </div>
+
+  <div class="glass-card">
+    <div class="glass-card-header">
+      <h5>Answer all questions and submit</h5>
+      <span class="badge bg-secondary">{{ attempt.difficulty.upper() }}</span>
+    </div>
+    <div class="glass-card-body">
+      <div id="quizQuestions">
+        {% for q in questions %}
+        <div class="quiz-question-card">
+          <div class="question-num">Q{{ loop.index }} of {{ questions|length }}</div>
+          <div class="question-text">{{ q.question_text }}</div>
+          <div class="options-grid">
+            {% for opt_letter, opt_key in [('A','option_a'),('B','option_b'),('C','option_c'),('D','option_d')] %}
+            <label class="option-label" id="opt-{{ loop.index0 }}-{{ opt_letter }}" onclick="selectOpt(this, {{ loop.index0 }})">
+              <input type="radio" name="q_{{ q.id }}" value="{{ opt_letter }}" data-qid="{{ q.id }}">
+              <span class="option-letter">{{ opt_letter }}</span>
+              <span class="option-text">{{ q[opt_key] }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="quiz-actions mt-4">
+        <button class="btn btn-success btn-lg" id="submitBtn" onclick="submitQuiz()">
+          <i class="fas fa-check me-2"></i>Submit Answers
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const attemptId = {{ attempt.id }};
+
+function selectOpt(label, idx) {
+  const name = label.querySelector('input').name;
+  document.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
+    inp.closest('.option-label').classList.remove('selected');
+  });
+  label.classList.add('selected');
+}
+
+async function submitQuiz() {
+  const answers = {};
+  document.querySelectorAll('input[type="radio"]:checked').forEach(inp => {
+    answers[inp.dataset.qid] = inp.value;
+  });
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting…';
+
+  const res = await fetch(`/quiz/submit/${attemptId}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(answers)
+  });
+  const data = await res.json();
+  if (data.error) { alert(data.error); btn.disabled = false; btn.innerHTML = '<i class="fas fa-check me-2"></i>Submit Answers'; return; }
+  window.location.href = `/quiz/results/${attemptId}`;
+}
+</script>
+{% endblock %}

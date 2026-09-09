@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}Welcome{% endblock %}
+{% block public_content %}
+<div class="landing-page">
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <nav class="landing-nav">
+      <div class="landing-logo">
+        <i class="fas fa-broadcast-tower"></i>
+        <span>TeleLearn <strong>AI</strong></span>
+      </div>
+      <div class="landing-nav-links">
+        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-sm me-2">Log In</a>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-sm">Get Started</a>
+      </div>
+    </nav>
+
+    <div class="hero-content">
+      <div class="hero-badge"><i class="fas fa-microchip me-2"></i>AI-Powered Learning</div>
+      <h1 class="hero-title">
+        TeleLearn <span class="accent-text">AI</span>
+      </h1>
+      <p class="hero-subtitle">Your Intelligent Telecom Learning Assistant</p>
+      <p class="hero-desc">
+        Learn telecom technologies, resolve doubts instantly, and test your knowledge
+        with AI-powered interactive learning.
+      </p>
+      <div class="hero-buttons">
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg hero-btn-primary">
+          <i class="fas fa-rocket me-2"></i>Start Learning
+        </a>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-cyan btn-lg">
+          <i class="fas fa-robot me-2"></i>Ask AI
+        </a>
+        <a href="#topics" class="btn btn-glass btn-lg">
+          <i class="fas fa-sitemap me-2"></i>Explore Topics
+        </a>
+      </div>
+    </div>
+
+    <!-- Animated network nodes -->
+    <div class="hero-bg-nodes" aria-hidden="true">
+      <div class="node n1"></div><div class="node n2"></div><div class="node n3"></div>
+      <div class="node n4"></div><div class="node n5"></div><div class="node n6"></div>
+    </div>
+  </section>
+
+  <!-- Stats bar -->
+  <section class="stats-bar">
+    <div class="stat-item"><i class="fas fa-broadcast-tower"></i><div><span class="stat-number">20+</span><span class="stat-label">Telecom Topics</span></div></div>
+    <div class="stat-item"><i class="fas fa-robot"></i><div><span class="stat-number">AI</span><span class="stat-label">Groq-Powered Tutor</span></div></div>
+    <div class="stat-item"><i class="fas fa-file-alt"></i><div><span class="stat-number">RAG</span><span class="stat-label">Document Learning</span></div></div>
+    <div class="stat-item"><i class="fas fa-question-circle"></i><div><span class="stat-number">MCQ</span><span class="stat-label">AI Quiz Generator</span></div></div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features-section" id="features">
+    <div class="section-header">
+      <h2>Everything You Need to Master Telecom</h2>
+      <p>A complete AI-powered learning ecosystem built for students and engineers</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(59,130,212,0.15);color:#3b82d4"><i class="fas fa-robot fa-2x"></i></div>
+        <h3>AI Chatbot Tutor</h3>
+        <p>Ask any telecom question and get structured, level-appropriate answers powered by Groq LLM with beginner/intermediate/advanced modes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(124,92,216,0.15);color:#7c5cd8"><i class="fas fa-brain fa-2x"></i></div>
+        <h3>RAG Learning System</h3>
+        <p>Upload your own PDF, TXT, and DOCX study materials. The system retrieves relevant context and generates answers from your documents.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(16,185,129,0.15);color:#10b981"><i class="fas fa-question-circle fa-2x"></i></div>
+        <h3>AI Quiz Generator</h3>
+        <p>Generate topic-specific MCQ quizzes at easy, medium, or hard difficulty. Get detailed explanations and performance feedback.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b"><i class="fas fa-sitemap fa-2x"></i></div>
+        <h3>Topic Explorer</h3>
+        <p>Browse 20+ telecom categories from 5G and MIMO to Satellite Communication and IoT, each with AI-generated deep-dives.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(239,68,68,0.15);color:#ef4444"><i class="fas fa-lightbulb fa-2x"></i></div>
+        <h3>Explain This</h3>
+        <p>Select any concept and choose how you want it explained: simply, with examples, step-by-step, technically, or as a comparison.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(6,182,212,0.15);color:#06b6d4"><i class="fas fa-chart-line fa-2x"></i></div>
+        <h3>Learning Dashboard</h3>
+        <p>Track your progress with beautiful charts, quiz history, topic coverage, and personalized learning insights.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Topics Preview -->
+  <section class="topics-preview" id="topics">
+    <div class="section-header">
+      <h2>Topics You'll Master</h2>
+      <p>From fundamentals to cutting-edge 6G technology</p>
+    </div>
+    <div class="topics-chips">
+      {% for topic, data in [('5G', {'icon':'🚀'}), ('4G LTE', {'icon':'📶'}), ('OFDM', {'icon':'〰️'}), ('MIMO', {'icon':'📻'}),
+         ('GSM', {'icon':'📱'}), ('CDMA', {'icon':'🔗'}), ('Modulation', {'icon':'〽️'}), ('Antennas', {'icon':'🗼'}),
+         ('Signal Processing', {'icon':'📊'}), ('TCP/IP', {'icon':'🌍'}), ('Routing', {'icon':'🔀'}), ('Fiber Optics', {'icon':'💡'}),
+         ('Satellite Communication', {'icon':'🛸'}), ('IoT Communication', {'icon':'🔌'}), ('6G Basics', {'icon':'🌐'})] %}
+      <a href="{{ url_for('auth.register') }}" class="topic-chip">{{ data.icon }} {{ topic }}</a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <div class="cta-inner">
+      <h2>Ready to Become a Telecom Expert?</h2>
+      <p>Join TeleLearn AI and start your intelligent learning journey today.</p>
+      <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
+        <i class="fas fa-rocket me-2"></i>Get Started for Free
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="landing-footer">
+    <p>© 2024 TeleLearn AI — AI-Powered Telecom Training Assistant &nbsp;|&nbsp; Built with Flask + Groq</p>
+  </footer>
+
+</div>
+{% endblock %}

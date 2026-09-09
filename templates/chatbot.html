@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% block title %}AI Tutor{% endblock %}
+{% block content %}
+<div class="chat-layout">
+  <!-- Conversations sidebar -->
+  <div class="chat-sidebar" id="chatSidebar">
+    <div class="chat-sidebar-header">
+      <h6><i class="fas fa-comments me-2"></i>Conversations</h6>
+      <button class="btn btn-primary btn-sm" id="newChatBtn" title="New Chat">
+        <i class="fas fa-plus"></i>
+      </button>
+    </div>
+    <div class="conv-search">
+      <input type="text" class="form-control form-control-sm" id="convSearch" placeholder="Search conversations…">
+    </div>
+    <div class="conv-list" id="convList">
+      {% for conv in conversations %}
+      <div class="conv-item {% if loop.first %}active{% endif %}" data-id="{{ conv.id }}" onclick="loadConversation({{ conv.id }})">
+        <div class="conv-title">{{ conv.title[:50] }}</div>
+        <div class="conv-meta">
+          <span class="conv-time">{{ conv.updated_at[:16] }}</span>
+          <button class="btn-icon-del" onclick="deleteConversation(event, {{ conv.id }})" title="Delete">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      </div>
+      {% else %}
+      <div class="conv-empty">
+        <i class="fas fa-comment-slash fa-2x mb-2"></i>
+        <p>No conversations yet.<br>Start chatting below!</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Main chat area -->
+  <div class="chat-main">
+    <!-- Chat header -->
+    <div class="chat-header">
+      <button class="btn btn-sm btn-icon-only d-lg-none" id="toggleChatSidebar"><i class="fas fa-bars"></i></button>
+      <div class="chat-header-info">
+        <div class="chat-avatar"><i class="fas fa-robot"></i></div>
+        <div>
+          <div class="chat-name">TeleLearn AI Tutor</div>
+          <div class="chat-status"><span class="status-dot"></span>Ready to help</div>
+        </div>
+      </div>
+      <div class="chat-header-controls">
+        <div class="level-selector">
+          <label class="small text-muted me-1">Level:</label>
+          <select class="form-select form-select-sm" id="levelSelect" style="width:auto">
+            <option value="beginner" {% if session.get('learning_level')=='beginner' %}selected{% endif %}>Beginner</option>
+            <option value="intermediate" {% if session.get('learning_level','intermediate')=='intermediate' %}selected{% endif %}>Intermediate</option>
+            <option value="advanced" {% if session.get('learning_level')=='advanced' %}selected{% endif %}>Advanced</option>
+          </select>
+        </div>
+        <div class="rag-toggle">
+          <input type="checkbox" class="form-check-input" id="ragToggle" checked>
+          <label class="form-check-label small text-muted ms-1" for="ragToggle">
+            <i class="fas fa-database me-1"></i>Use Docs
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages area -->
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-welcome">
+        <div class="welcome-avatar"><i class="fas fa-robot"></i></div>
+        <h4>Hello, {{ session.get('full_name', 'Learner') }}! 👋</h4>
+        <p>I'm your AI Telecom Tutor. Ask me anything about wireless communication, networking, protocols, signal processing, or any telecom concept!</p>
+        <div class="welcome-suggestions">
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">What is OFDM?</button>
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">Explain 5G NR architecture</button>
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">How does MIMO work?</button>
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">Difference between 4G and 5G</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="chat-input-area">
+      <div class="chat-input-wrapper">
+        <textarea class="chat-input" id="chatInput" placeholder="Ask a telecom question… (Shift+Enter for new line)" rows="1" maxlength="2000"></textarea>
+        <div class="chat-input-actions">
+          <span class="char-count" id="charCount">0/2000</span>
+          <button class="btn btn-primary btn-send" id="sendBtn" onclick="sendMessage()">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sources Modal -->
+<div class="modal fade" id="sourcesModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-database me-2"></i>Source Documents Used</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="sourcesModalBody"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentConvId = {{ conversations[0].id if conversations else 'null' }};
+let isLoading = false;
+
+// Load first conversation on page load
+window.addEventListener('DOMContentLoaded', () => {
+  if (currentConvId) loadConversation(currentConvId);
+  setupTextarea();
+});
+
+function setupTextarea() {
+  const textarea = document.getElementById('chatInput');
+  textarea.addEventListener('input', () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+    document.getElementById('charCount').textContent = textarea.value.length + '/2000';
+  });
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+}
+
+async function sendMessage() {
+  if (isLoading) return;
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+
+  const level = document.getElementById('levelSelect').value;
+  const useRag = document.getElementById('ragToggle').checked;
+
+  appendMessage('user', message);
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('charCount').textContent = '0/2000';
+
+  const thinkingId = showThinking();
+  isLoading = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  try {
+    const res = await fetch('/chatbot/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, conversation_id: currentConvId, use_rag: useRag, level })
+    });
+    const data = await res.json();
+    removeThinking(thinkingId);
+
+    if (data.error) {
+      appendMessage('error', data.error);
+    } else {
+      currentConvId = data.conversation_id;
+      appendMessage('assistant', data.answer, data.sources || []);
+      updateConvList(currentConvId, message);
+    }
+  } catch (err) {
+    removeThinking(thinkingId);
+    appendMessage('error', 'Network error. Please check your connection and try again.');
+  } finally {
+    isLoading = false;
+    document.getElementById('sendBtn').disabled = false;
+  }
+}
+
+function sendSuggestion(btn) {
+  document.getElementById('chatInput').value = btn.textContent;
+  sendMessage();
+}
+
+function appendMessage(role, content, sources) {
+  const container = document.getElementById('chatMessages');
+  const welcome = container.querySelector('.chat-welcome');
+  if (welcome) welcome.remove();
+
+  const div = document.createElement('div');
+  div.className = `message message-${role}`;
+
+  if (role === 'user') {
+    div.innerHTML = `<div class="message-bubble user-bubble">${escapeHtml(content)}</div>`;
+  } else if (role === 'error') {
+    div.innerHTML = `<div class="message-bubble error-bubble"><i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(content)}</div>`;
+  } else {
+    const sourcesHtml = sources && sources.length
+      ? `<button class="btn btn-xs btn-sources" onclick="showSources(${JSON.stringify(sources).replace(/"/g,'&quot;')})">
+           <i class="fas fa-database me-1"></i>${sources.length} source(s)
+         </button>` : '';
+    div.innerHTML = `
+      <div class="message-avatar"><i class="fas fa-robot"></i></div>
+      <div class="message-content">
+        <div class="message-bubble ai-bubble" id="msg-${Date.now()}">${renderMarkdown(content)}</div>
+        ${sourcesHtml}
+      </div>`;
+  }
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showThinking() {
+  const id = 'think-' + Date.now();
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'message message-assistant';
+  div.id = id;
+  div.innerHTML = `<div class="message-avatar"><i class="fas fa-robot"></i></div>
+    <div class="message-content"><div class="thinking-bubble"><span></span><span></span><span></span></div></div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+function removeThinking(id) { document.getElementById(id)?.remove(); }
+
+async function loadConversation(convId) {
+  currentConvId = convId;
+  document.querySelectorAll('.conv-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id == convId);
+  });
+  const container = document.getElementById('chatMessages');
+  container.innerHTML = '<div class="text-center text-muted p-4"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+  try {
+    const res = await fetch(`/chatbot/conversation/${convId}`);
+    const data = await res.json();
+    container.innerHTML = '';
+    if (data.messages && data.messages.length) {
+      data.messages.forEach(m => appendMessage(m.role, m.content, m.sources || []));
+    } else {
+      showWelcome();
+    }
+  } catch (e) { container.innerHTML = ''; showWelcome(); }
+}
+
+function showWelcome() {
+  document.getElementById('chatMessages').innerHTML = `
+    <div class="chat-welcome">
+      <div class="welcome-avatar"><i class="fas fa-robot"></i></div>
+      <h4>Start a new conversation!</h4>
+      <p>Ask me anything about telecom — 5G, OFDM, MIMO, TCP/IP, and more.</p>
+    </div>`;
+}
+
+async function deleteConversation(e, convId) {
+  e.stopPropagation();
+  if (!confirm('Delete this conversation?')) return;
+  await fetch(`/chatbot/conversation/${convId}/delete`, { method: 'POST' });
+  document.querySelector(`.conv-item[data-id="${convId}"]`)?.remove();
+  if (currentConvId == convId) { currentConvId = null; showWelcome(); }
+}
+
+document.getElementById('newChatBtn').addEventListener('click', async () => {
+  const res = await fetch('/chatbot/new', { method: 'POST' });
+  const data = await res.json();
+  currentConvId = data.conversation_id;
+  const list = document.getElementById('convList');
+  const empty = list.querySelector('.conv-empty');
+  if (empty) empty.remove();
+  const item = document.createElement('div');
+  item.className = 'conv-item active';
+  item.dataset.id = data.conversation_id;
+  item.onclick = () => loadConversation(data.conversation_id);
+  item.innerHTML = `<div class="conv-title">New Conversation</div>
+    <div class="conv-meta"><span class="conv-time">just now</span>
+    <button class="btn-icon-del" onclick="deleteConversation(event,${data.conversation_id})"><i class="fas fa-trash-alt"></i></button></div>`;
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+  list.prepend(item);
+  showWelcome();
+});
+
+function showSources(sources) {
+  const body = document.getElementById('sourcesModalBody');
+  body.innerHTML = sources.map((s, i) => `
+    <div class="source-item mb-3">
+      <div class="source-header"><i class="fas fa-file-alt me-2"></i><strong>${s.source}</strong>
+        <span class="badge bg-secondary ms-2">Chunk ${s.chunk}</span>
+        <span class="badge bg-primary ms-1">Score: ${s.score}</span>
+      </div>
+    </div>`).join('');
+  new bootstrap.Modal(document.getElementById('sourcesModal')).show();
+}
+
+function updateConvList(convId, message) {
+  const item = document.querySelector(`.conv-item[data-id="${convId}"]`);
+  if (item) {
+    const title = item.querySelector('.conv-title');
+    if (title && title.textContent === 'New Conversation') title.textContent = message.slice(0, 50);
+  }
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function renderMarkdown(text) {
+  if (typeof marked !== 'undefined') return marked.parse(text);
+  return text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+             .replace(/\*(.*?)\*/g,'<em>$1</em>')
+             .replace(/\n/g,'<br>');
+}
+
+// Mobile sidebar toggle
+document.getElementById('toggleChatSidebar')?.addEventListener('click', () => {
+  document.getElementById('chatSidebar').classList.toggle('open');
+});
+
+// Conversation search
+document.getElementById('convSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.conv-item').forEach(el => {
+    el.style.display = el.querySelector('.conv-title').textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

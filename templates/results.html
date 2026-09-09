@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Quiz Results{% endblock %}
+{% block content %}
+<div class="page-wrapper">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="fas fa-clipboard-check me-2 text-primary"></i>Quiz Results</h1>
+      <p class="page-subtitle">{{ attempt.topic }} – {{ attempt.difficulty.title() }}</p>
+    </div>
+    <div class="header-actions">
+      <a href="{{ url_for('quiz.index') }}" class="btn btn-primary"><i class="fas fa-redo me-1"></i>Take Another Quiz</a>
+    </div>
+  </div>
+
+  <!-- Score Summary -->
+  <div class="result-summary glass-card mb-4">
+    <div class="result-score-ring">
+      <svg viewBox="0 0 120 120" class="score-ring-svg">
+        <circle cx="60" cy="60" r="54" class="ring-bg"/>
+        <circle cx="60" cy="60" r="54" class="ring-fill"
+          style="stroke-dasharray: {{ (attempt.score_percent / 100 * 339.3)|int }} 339.3;
+                 stroke: {{ '#10b981' if attempt.score_percent >= 75 else '#f59e0b' if attempt.score_percent >= 50 else '#ef4444' }}"/>
+      </svg>
+      <div class="score-ring-text">
+        <span class="score-big">{{ "%.0f"|format(attempt.score_percent) }}%</span>
+        <span class="score-sub">Score</span>
+      </div>
+    </div>
+    <div class="result-details">
+      <h3>{{ feedback }}</h3>
+      <div class="result-stats">
+        <div class="rs-item rs-correct"><i class="fas fa-check-circle"></i><span>{{ attempt.correct_answers }} Correct</span></div>
+        <div class="rs-item rs-wrong"><i class="fas fa-times-circle"></i><span>{{ attempt.total_questions - attempt.correct_answers }} Incorrect</span></div>
+        <div class="rs-item rs-total"><i class="fas fa-list"></i><span>{{ attempt.total_questions }} Total</span></div>
+      </div>
+      <div class="result-meta text-muted small">
+        <span><i class="fas fa-tag me-1"></i>{{ attempt.topic }}</span>
+        <span class="ms-3"><i class="fas fa-signal me-1"></i>{{ attempt.difficulty.title() }}</span>
+        <span class="ms-3"><i class="fas fa-clock me-1"></i>{{ attempt.completed_at[:16] }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Question Review -->
+  <div class="glass-card">
+    <div class="glass-card-header">
+      <h5><i class="fas fa-list-check me-2"></i>Question Review</h5>
+    </div>
+    <div class="glass-card-body">
+      {% for q in questions %}
+      <div class="result-question {{ 'result-correct' if q.is_correct else 'result-wrong' }}">
+        <div class="result-q-header">
+          <span class="result-q-num">Q{{ loop.index }}</span>
+          <span class="result-q-status">
+            {% if q.is_correct %}
+              <i class="fas fa-check-circle text-success me-1"></i><span class="text-success">Correct</span>
+            {% else %}
+              <i class="fas fa-times-circle text-danger me-1"></i><span class="text-danger">Incorrect</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="result-q-text">{{ q.question_text }}</div>
+
+        <div class="result-options">
+          {% for opt_letter, opt_key in [('A','option_a'),('B','option_b'),('C','option_c'),('D','option_d')] %}
+          <div class="result-option
+            {% if opt_letter == q.correct_option %}result-option-correct
+            {% elif opt_letter == q.user_answer and not q.is_correct %}result-option-wrong
+            {% endif %}">
+            <span class="result-option-letter">{{ opt_letter }}</span>
+            <span>{{ q[opt_key] }}</span>
+            {% if opt_letter == q.correct_option %}
+              <i class="fas fa-check ms-auto text-success"></i>
+            {% elif opt_letter == q.user_answer and not q.is_correct %}
+              <i class="fas fa-times ms-auto text-danger"></i>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if q.user_answer %}
+        <div class="result-user-ans text-muted small">
+          Your answer: <strong>{{ q.user_answer }}</strong>
+          {% if not q.is_correct %} | Correct: <strong class="text-success">{{ q.correct_option }}</strong>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">No answer selected.</div>
+        {% endif %}
+
+        {% if q.explanation %}
+        <div class="result-explanation">
+          <i class="fas fa-lightbulb me-2 text-warning"></i>
+          <strong>Explanation:</strong> {{ q.explanation }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
